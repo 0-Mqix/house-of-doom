@@ -1,8 +1,6 @@
 const net = require("net")
-
-const { Writable } = require("stream")
-
 const WebSocket = require("ws")
+const { Writable } = require("stream")
 
 /**
 @param {WebSocket.Server<WebSocket.WebSocket>} ws
@@ -21,9 +19,11 @@ function StartClientHandler(ws, arduinoIn, arduinoOut) {
 			// send a message back to the client
 			client.send(`you said: ${message}`)
 
+			//send event to arduino handler
 			arduinoIn.emit("data", message)
 		})
 
+		//recieve message from arduino handler
 		arduinoOut.on("data", (data) => {
 			client.send(data.toString())
 		})
