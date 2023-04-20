@@ -10,8 +10,6 @@ const { Writable } = require("stream")
 
 function StartClientHandler(ws, arduinoIn, arduinoOut) {
 	ws.on("connection", (client) => {
-		console.log("client connected")
-
 		// handle incoming messages from the client
 		client.on("message", (message) => {
 			console.log(`received message: ${message}`)
@@ -20,12 +18,12 @@ function StartClientHandler(ws, arduinoIn, arduinoOut) {
 			client.send(`you said: ${message}`)
 
 			//send event to arduino handler
-			arduinoIn.emit("data", message)
+			arduinoIn.emit("data", message + "\n\r")
 		})
 
 		//recieve message from arduino handler
 		arduinoOut.on("data", (data) => {
-			client.send(data.toString())
+			client.send(data)
 		})
 
 		// handle client disconnection

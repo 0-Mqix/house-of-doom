@@ -3,7 +3,7 @@ const http = require("http")
 const net = require("net")
 
 const WebSocket = require("ws")
-const { Writable, Readable } = require("stream")
+const { Writable } = require("stream")
 
 const { ConnectArduino } = require("./src/arduino.js")
 const { StartClientHandler } = require("./src/clients.js")
@@ -13,14 +13,20 @@ const http_server = http.createServer(app)
 const tcp_server = net.createServer()
 const ws = new WebSocket.Server({ server: http_server })
 
+//a Writable is an object that is a stream where you can
+//attach
 /** @type {Writable} */
 const arduinoIn = new Writable()
-
 /** @type {Writable} */
 const arduinoOut = new Writable()
 
 tcp_server.on("connection", async (socket) => {
-	console.log("Client connected")
+	console.log("[TCP] connection %s}", socket.remoteAddress)
+
+	//handle socket error
+	socket.on("error", () => {
+		socket.destroy()
+	})
 
 	//wait until data recieved
 	const data = await new Promise((resolve) => {
