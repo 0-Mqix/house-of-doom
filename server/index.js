@@ -5,7 +5,7 @@ const net = require("net")
 const WebSocket = require("ws")
 const { Writable } = require("stream")
 
-const { ConnectArduino } = require("./src/arduino.js")
+const { HandleArduinoConnection } = require("./src/arduino.js")
 const { StartClientHandler } = require("./src/clients.js")
 
 const app = express()
@@ -20,6 +20,8 @@ const arduinoIn = new Writable()
 /** @type {Writable} */
 const arduinoOut = new Writable()
 
+//custom tcp middleware so can process it as a http request or i can use the socket for
+//bi-directional comunication between the server and the arduino if the first byte is a '!'
 tcp_server.on("connection", async (socket) => {
 	console.log("[TCP] connection %s}", socket.remoteAddress)
 
@@ -33,9 +35,9 @@ tcp_server.on("connection", async (socket) => {
 		socket.once("data", (data) => resolve(data))
 	})
 
-	//if first byte is '!'
+	//check if byte is '!'
 	if (data[0] == 33) {
-		ConnectArduino(socket, arduinoIn, arduinoOut)
+		HandleArduinoConnection(socket, arduinoIn, arduinoOut)
 		return
 	}
 
