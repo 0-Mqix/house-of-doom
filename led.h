@@ -23,7 +23,7 @@ enum Color {
 
 class RGB {
     int color_position = 0;
-    bool active = true;
+    bool active = false;
 
    int red_pin;
    int green_pin;
@@ -50,12 +50,10 @@ public:
     } 
 
 
-    void begin() {
+    void init() {
         pinMode(red_pin, OUTPUT);        
         pinMode(green_pin, OUTPUT);        
         pinMode(blue_pin, OUTPUT);        
-        
-        show();
     }
 
     void shift() {
@@ -73,8 +71,6 @@ public:
             random_color();
             return;
         }
-
-        Serial.println(random_number);
 
         set_color(random_number);
     }
