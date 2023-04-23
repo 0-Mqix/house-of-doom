@@ -1,45 +1,175 @@
+//Made By 0-Mqix! 
+
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <dht.h>
-#include <WiFiEsp.h>
-#include <ArduinoSTL.h>
+#include <WiFiEspAT.h>
 
-#include "led.h"
+#include "Rgb.h"
 
 #define DEBOUNCE_DELAY 300
 #define AT_BAUD_RATE 115200
 
 const int di_red_button = 2;
-const int di_blue_button = 3;
-const int di_dht = 4;
+const int di_dht = 3;
 
-volatile RGB status_led(24, 23, 22);
+RGB status_led(24, 23, 22);
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-char ssid[] = "Arduino";          // your network SSID (name)
-char pass[] = "Zp3Y8FKt";
-int status = WL_IDLE_STATUS;     // the Wifi radio's status
+int status = WL_IDLE_STATUS;
 
-char host[] = "10.11.16.91";
+// char ssid[] = "arduino";
+// char pass[] = "zp3y8fkt";
 
-std::vector<WiFiEspClient*> clients(0);
-int last_id = -1;
+// char host[] = "0.0.0.0";
 
 DHT dht;
-WiFiEspClient client;
-WiFiEspServer server(6000);
 
-volatile int screen = 0;
+WiFiClient client;
+
+//string to store the incomming message in;
+String message;
+
+//long to store time of the last cooldowns of ...
+long send_cooldown = 0;
+long rgb_shift_cooldown = 0;
+long update_display_cooldown = 0;
+
+//rgb if this is true the led will do color shifting each 1s
+bool rgb = false;
+
+//for vertical scroll on the lcd
+int display_state = 0;
+
+//the red button clicks comming from the database
+int clicks = 0; 
+
+/*
+volatile is used to indicate to the compiler that a variable's value may change unexpectedly,
+and therefore it should not make any assumptions about its value or optimize any code based on that assumption.
+so you can modifiy its value inside a interupt
+*/
+
+//volitile bool to store if the button is clicked
+volatile bool red_button_click = false;
+
+void displayHumidity(int y) {
+  lcd.setCursor(0, y); 
+  lcd.print("Humidity:");
+  lcd.setCursor(12, y);     
+  lcd.print(dht.humidity, 0);
+  lcd.print(" %");
+}
+
+void displayTemprature(int y) {
+  lcd.setCursor(0, y); 
+  lcd.print("Temprature:");
+  lcd.setCursor(12, y);     
+  lcd.print(dht.temperature, 0);
+  lcd.print(" C");
+}
+
+void displayClicks(int y) {
+  lcd.setCursor(0, y);    
+  lcd.print("Clicks:");
+  lcd.setCursor(12, y);     
+  
+  String number = String(clicks);
+  String string = String("    ").substring(number.length(), 4) + number;
+
+  lcd.print(string);
+}
+
+void updateDisplay() {
+  lcd.clear();
+
+    switch (display_state) {
+    case 0:
+      displayClicks(0);
+      displayTemprature(1);
+      break;
+
+    case 1:
+      displayHumidity(0);
+      displayClicks(1);
+      break;
+
+    case 2:
+      displayTemprature(0);
+      displayHumidity(1);
+      break;
+    }
+}
+
+//function that processes the finished message string so i can
+//control the arduino based the message content
+void handleMessage(String msg) {
+  String cmd = msg;
+
+  if (cmd.indexOf("status_led:") == 0) {
+    cmd.replace("status_led:", "");
+
+    int value = cmd.toInt();
+
+    if (cmd.equals("toggle")) {
+      status_led.toggle();
+    } else if (cmd.equals("rgb")) {
+      rgb = true;
+    } else if (value > -1 && value < 7) {
+      rgb = false;
+      status_led.set_color((Color)value);
+    }
+  }
+  
+  status_led.update();
+  
+  if (cmd.indexOf("set_clicks:") == 0) {
+    cmd.replace("set_clicks:", "");
+    
+    int value = cmd.toInt();
+    
+    if (value >= 0) {
+      clicks = value;
+    
+      if (display_state != 2) {
+       updateDisplay();
+      }
+    } 
+  }
+
+  Serial.println("[SERVER] -> " + msg);
+}
+
+void redButtonHandler() {
+  red_button_click = true;
+}
+
+
+void printMacAddress() {
+  // get your MAC address
+  byte mac[6];
+  WiFi.macAddress(mac);
+  
+  // print MAC address
+  char buf[20];
+  sprintf(buf, "%02X:%02X:%02X:%02X:%02X:%02X", mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
+  Serial.print("MAC address: ");
+  Serial.println(buf);
+}
+
+//the '!' tells the server that it needs to be tcp only
+void connectToServer() {
+  if (client.connect(host, 80)) {
+      client.write('!');
+      client.flush();
+  }
+}
 
 void setup() {
   //blue button
   pinMode(di_red_button, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(di_red_button), red_button_handler, FALLING);
-
-  //blue button
-  pinMode(di_blue_button, INPUT_PULLUP);
-  // attachInterrupt(digitalPinToInterrupt(di_blue_button), blue_button_handler, FALLING);
-
+  attachInterrupt(digitalPinToInterrupt(di_red_button), redButtonHandler, FALLING);
+  
   //screen
   lcd.init();
   lcd.backlight();
@@ -53,11 +183,16 @@ void setup() {
 
   //status rgb led
   status_led.init();
-  status_led.set_color(green);
-  status_led.show();
+  status_led.set_active(false);
+  status_led.set_color(Color::WHITE);
+  status_led.update();
   
   Serial1.begin(115200);
   WiFi.init(&Serial1);
+
+
+  //this sets that the connection cant timeout so the connection can stay open as long as possible
+  client.setTimeout(0);
 
   // check for the presence of the shield
   if (WiFi.status() == WL_NO_SHIELD) {
@@ -74,109 +209,70 @@ void setup() {
     status = WiFi.begin(ssid, pass);
   }
 
-  server.begin();
-
   IPAddress ip = WiFi.localIP();
   Serial.print("IP Address: ");
   Serial.println(ip);
-
-  // if (client->connect(host, 4001)) {
-  //   client->println("GET / HTTP/1.1");
-  //   client->println("Host: 10.11.16.91");
-  //   client->println("Content-Type: text/plain");
-  //   client->println("Content-Length: 4");
-  //   client->println();
-  //   client->println("test");
-  // }
+  
+  printMacAddress();
+  connectToServer();
+  updateDisplay();
 }
 
 void loop() {
-  // while (client->available()) {
-  //   char c = client->read();
-  //   Serial.write(c);
-  // }
-
-  // if (status_led.is_active()) {
-  //   dht_print_lcd();
-  //   delay(10000);
-  // }
-
-  // listen for incoming clients
-  WiFiEspClient new_client = server.available();
-
-  if (new_client && last_id != new_client.id()) {
-    clients.push_back(&new_client);
-    last_id = new_client.id();
+  //if connection is lost i reconnect
+  if (!client.connected()) {
+    connectToServer();
   }
 
-  size_t size = clients.size();
-
-  for (size_t i = 0; i < size; i++) {
-    handle_client(i, clients[i]);
-  } 
-}
-
-
-void red_button_handler() {
-  status_led.toggle();
-  status_led.show();
-}
-
-void dht_print_lcd() {
-  dht.read11(di_dht);
-  
-  lcd.clear();
-
-  lcd.setCursor(0, 0); 
-  lcd.print("Humidity:");
-  lcd.setCursor(12, 0);     
-  lcd.print(dht.humidity, 0);
-  lcd.print(" %");
-  
-  lcd.setCursor(0, 1); 
-  lcd.print("Temprature:");
-  lcd.setCursor(12, 1);     
-  lcd.print(dht.temperature, 0);
-  lcd.print(" C");
-}
-
-void printMacAddress() {
-  // get your MAC address
-  byte mac[6];
-  WiFi.macAddress(mac);
-  
-  // print MAC address
-  char buf[20];
-  sprintf(buf, "%02X:%02X:%02X:%02X:%02X:%02X", mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
-  Serial.print("MAC address: ");
-  Serial.println(buf);
-}
-
-String msg = "";
-
-void handle_client(size_t i, WiFiEspClient* client) {  
-  while (client->available()) {
-      char c = client->read();
-      if (c == "\n") {
-        msg = "";
-      } else {
-        msg.concat(c);
-      }  
+  //while there is data avalible it appends each byte to message until '\n' -> handleMessage -> reapeat until no more bytes left
+  //i had a serialEvent for this but it gave alot of weird behavior so i dont use dalays and use cooldowns to execute and wait for things
+   while (client.available()) {
+    char c = client.read();
+    if (c == '\n') {
+      handleMessage(message);
+      message = "";
+    } else {
+      message += c;
+    }
   }
 
-  client->write(msg.c_str());
+  if (red_button_click == true) {
+    client.print("click\n");
+    red_button_click = false;
+    
 
-  // if (client->getWriteError()) {
-  //   Serial.print(client->remoteIP());
-  //   Serial.print("-");
-  //   Serial.print(client->id());
-  //   Serial.print("-");
-  //   Serial.print(i);
-  //   Serial.println(" [X]");
+  }
 
-  //   std::vector<WiFiEspClient*>::iterator it = clients.begin();
-  //   std::advance(it, i);
-  //   clients.erase(it);
-  //   client->stop();
-  // }
+
+  if (rgb && (rgb_shift_cooldown == 0 || rgb_shift_cooldown <= millis() - 1000)) {
+      status_led.shift();
+      status_led.update();
+      
+      rgb_shift_cooldown = millis();
+  }
+
+  if (send_cooldown == 0 || send_cooldown <= millis() - 5000) {
+    dht.read11(di_dht);
+
+    client.print("data:");
+    client.print(dht.temperature, 0);
+    client.write(",");
+    client.print(dht.humidity, 0);
+    client.write("\n");
+
+    send_cooldown = millis();
+  }
+  
+  //make sure there is room for data
+  client.flush();
+
+  //update the lcd every 5 secs to show scrolling effect
+  if (update_display_cooldown == 0 || update_display_cooldown <= millis() - 2500) {
+
+    display_state = (display_state + 1) % 3;
+    updateDisplay();
+
+    update_display_cooldown = millis();
+  }
 }
+

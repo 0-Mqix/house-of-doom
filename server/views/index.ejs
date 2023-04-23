@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>house-of-doom</title>
+		<link rel="stylesheet" href="main.css" />
+	</head>
+	<body>
+		<main>
+			<div id="colors">
+				<button style="background-color: red"></button>
+				<button style="background-color: yellow"></button>
+				<button style="background-color: lawngreen"></button>
+				<button style="background-color: cyan"></button>
+				<button style="background-color: blue"></button>
+				<button style="background-color: purple"></button>
+				<button style="background-color: white"></button>
+				<button>toggle</button>
+				<button>rgb</button>
+			</div>
+
+			<div class="value">
+				<div>temprature</div>
+				<span id="temprature"><%= temprature %>°C</span>
+			</div>
+			<div class="value">
+				<div>humidity</div>
+				<span id="humidity"><%= humidity %>%</span>
+			</div>
+			<div class="value">
+				<div>button clicks</div>
+				<span id="clicks"><%= clicks %></span>
+			</div>
+		</main>
+	</body>
+	<script src="main.js"></script>
+</html>

@@ -1,34 +1,39 @@
 const net = require("net")
 const WebSocket = require("ws")
 const { Writable } = require("stream")
+const crypto = require("crypto")
 
 /**
 @param {WebSocket.Server<WebSocket.WebSocket>} ws
 @param {Writable} arduinoIn
-@param {Writable} arduinoOut
+@param {Writable} clientsIn
 */
+function StartClientHandler(ws, arduinoIn, clientsIn) {
+	/** @type {Map<String, WebSocket.WebSocket>} */
+	const clients = new Map()
 
-function StartClientHandler(ws, arduinoIn, arduinoOut) {
+	//send all clients the message from the clientsIn Stream
+	clientsIn.on("data", (data) => {
+		clients.forEach((c) => {
+			c.send(data)
+		})
+	})
+
 	ws.on("connection", (client) => {
+		const id = crypto.randomUUID()
+		//add client to map with a uuid
+		clients.set(id, client)
+
 		// handle incoming messages from the client
 		client.on("message", (message) => {
-			console.log(`received message: ${message}`)
-
-			// send a message back to the client
-			client.send(`you said: ${message}`)
-
 			//send event to arduino handler
-			arduinoIn.emit("data", message + "\n\r")
+			arduinoIn.emit("data", message + "\n")
 		})
 
-		//recieve message from arduino handler
-		arduinoOut.on("data", (data) => {
-			client.send(data)
-		})
-
-		// handle client disconnection
+		//handle client disconnection
 		client.on("close", () => {
-			console.log("client disconnected")
+			console.log("[WS] [CLIENT] disconnected")
+			clients.delete(id)
 		})
 	})
 }

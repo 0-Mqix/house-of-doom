@@ -1,0 +1,58 @@
+* {
+	font-family: "Comic Sans MS", "Comic Sans", cursive;
+	border-radius: 0.75rem;
+	box-sizing: border-box;
+}
+
+button {
+	display: flex;
+	padding: 4px 12px;
+	text-align: center;
+	align-items: center;
+	justify-content: center;
+	font-weight: bold;
+}
+
+body {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+}
+
+main {
+	width: fit-content;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	gap: 10px;
+}
+
+.value {
+	display: flex;
+	justify-content: space-between;
+	padding: 4px;
+	border: black solid 2px;
+	width: 100%;
+}
+
+.value > div {
+	font-weight: bold;
+}
+
+#colors {
+	border: black solid 2px;
+	padding: 4px;
+	width: fit-content;
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 4px;
+}
+
+#colors > button {
+	flex-shrink: 0;
+	padding: 0;
+	height: 50px;
+	width: 50px;
+}

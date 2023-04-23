@@ -7,6 +7,7 @@ const { Writable } = require("stream")
 
 const { HandleArduinoConnection } = require("./src/arduino.js")
 const { StartClientHandler } = require("./src/clients.js")
+const { GetClicks } = require("./src/database.js")
 
 const app = express()
 const http_server = http.createServer(app)
@@ -18,15 +19,20 @@ const ws = new WebSocket.Server({ server: http_server })
 /** @type {Writable} */
 const arduinoIn = new Writable()
 /** @type {Writable} */
-const arduinoOut = new Writable()
+const clientsIn = new Writable()
 
 //custom tcp middleware so can process it as a http request or i can use the socket for
 //bi-directional comunication between the server and the arduino if the first byte is a '!'
 tcp_server.on("connection", async (socket) => {
-	console.log("[TCP] connection %s}", socket.remoteAddress)
+	console.log("[TCP] connection %s", socket.remoteAddress)
 
 	//handle socket error
-	socket.on("error", () => {
+	socket.on("error", (err) => {
+		console.log(
+			"[ARDUINO] connection error %s from %s",
+			err.message,
+			socket.remoteAddress
+		)
 		socket.destroy()
 	})
 
@@ -37,7 +43,7 @@ tcp_server.on("connection", async (socket) => {
 
 	//check if byte is '!'
 	if (data[0] == 33) {
-		HandleArduinoConnection(socket, arduinoIn, arduinoOut)
+		HandleArduinoConnection(socket, arduinoIn, clientsIn)
 		return
 	}
 
@@ -47,10 +53,22 @@ tcp_server.on("connection", async (socket) => {
 })
 
 //start the websocket handler
-StartClientHandler(ws, arduinoIn, arduinoOut)
+StartClientHandler(ws, arduinoIn, clientsIn)
 
 //serve all files in public folder
 app.use(express.static("public"))
+
+// set the view engine to ejs
+app.set("view engine", "ejs")
+// use res.render to load up an ejs view file
+
+app.get("/", async (req, res) => {
+	res.render("index", {
+		temprature: 1,
+		humidity: 2,
+		clicks: await GetClicks()
+	})
+})
 
 //listern on port 80
 tcp_server.listen(80, () => {

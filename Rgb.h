@@ -7,36 +7,42 @@ const int color_matrix[][3] = {
     {1, 0, 0}, //red 
     {1, 1, 0}, //yellow
     {0, 1, 0}, //green
-    {0, 1, 1},  //cyan
+    {0, 1, 1}, //cyan
     {0, 0, 1}, //blue
-    {1, 0, 1} //purple
+    {1, 0, 1}, //purple
+    {1, 1, 1} //white
 };
 
 enum Color {
-    red,
-    yellow,
-    green,
-    cyan,
-    blue,
-    purple
+    RED,
+    YELLOW,
+    GREEN,
+    CYAN,
+    BLUE,
+    PUPLE,
+    WHITE
 };
 
 class RGB {
+private:
     int color_position = 0;
     bool active = false;
+    bool is_analog = false;
 
    int red_pin;
    int green_pin;
    int blue_pin;
 
 public:   
-    RGB(int r_pin, int g_pin, int b_pin) {
+    RGB(int r_pin, int g_pin, int b_pin, bool is_analog = false) {
         red_pin = r_pin;
         green_pin = g_pin;
         blue_pin = b_pin;
+        
+        this->is_analog = is_analog;
     }
     
-    void show() {
+    void update() {
         if (!active) {
             digitalWrite(red_pin, 0);
             digitalWrite(green_pin, 0);
@@ -72,7 +78,7 @@ public:
             return;
         }
 
-        set_color(random_number);
+        set_color((Color)random_number);
     }
 
     void toggle() {
@@ -81,6 +87,10 @@ public:
 
     bool is_active() {
         return active;
+    }
+
+    void set_active(bool value) {
+        active = value;
     }
 };
 
