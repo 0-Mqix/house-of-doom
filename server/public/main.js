@@ -10,7 +10,7 @@ let ws
 
 function connect() {
 	//websockets explained in the document
-	ws = new WebSocket("ws://localhost:80")
+	ws = new WebSocket(`ws://${window.location.host}:80`)
 
 	ws.onmessage = (e) => {
 		/** @type {string} data */

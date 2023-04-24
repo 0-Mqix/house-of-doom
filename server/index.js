@@ -70,7 +70,7 @@ app.get("/", async (req, res) => {
 	})
 })
 
-//listern on port 80
-tcp_server.listen(80, () => {
+//listern on port ?
+tcp_server.listen(process.env.PORT, () => {
 	console.log("Server is listening on port 80")
 })

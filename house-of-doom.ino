@@ -18,11 +18,6 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 int status = WL_IDLE_STATUS;
 
-// char ssid[] = "arduino";
-// char pass[] = "zp3y8fkt";
-
-// char host[] = "0.0.0.0";
-
 DHT dht;
 
 WiFiClient client;
@@ -189,7 +184,6 @@ void setup() {
   
   Serial1.begin(115200);
   WiFi.init(&Serial1);
-
 
   //this sets that the connection cant timeout so the connection can stay open as long as possible
   client.setTimeout(0);
